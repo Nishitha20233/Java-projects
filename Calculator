@@ -1,0 +1,223 @@
+import java.awt.*;
+import java.applet.*;
+import java.awt.event.*;
+import java.util.Stack;
+
+/* <applet code="Calculator" width=400 height=500>
+</applet> */
+
+public class Calculator extends Applet implements ActionListener {
+    TextField display;
+    Button[] numberButtons;
+    Button addButton, subButton, mulButton, divButton, eqButton, clrButton, backButton, decButton, negButton, percButton;
+    String currentExpression = "";
+
+    public void init() {
+        setBackground(Color.lightGray); 
+
+        display = new TextField(20);
+        display.setEditable(false);
+        display.setFont(new Font("Arial", Font.BOLD, 24)); 
+
+        setLayout(new BorderLayout(10, 10));
+        add(display, BorderLayout.NORTH);
+
+        Panel mainPanel = new Panel();
+        mainPanel.setLayout(new BorderLayout(10, 10));
+        mainPanel.setBackground(Color.gray); 
+        add(mainPanel, BorderLayout.CENTER);
+
+        Panel numberPanel = new Panel();
+        numberPanel.setLayout(new GridLayout(4, 3, 10, 10)); 
+        numberPanel.setBackground(Color.lightGray); 
+
+        numberButtons = new Button[10];
+        for (int i = 1; i < 10; i++) {
+            numberButtons[i] = createButton(String.valueOf(i), numberPanel);
+            if (i == 9) {
+                backButton = createButton("Back", numberPanel);
+            }
+        }
+
+        numberButtons[0] = createButton("0", numberPanel);
+        decButton = createButton(".", numberPanel);
+
+        Panel operatorPanel = new Panel();
+        operatorPanel.setLayout(new GridLayout(6, 1, 10, 10)); 
+        operatorPanel.setBackground(Color.gray); 
+
+        addButton = createOperatorButton("+", operatorPanel);
+        subButton = createOperatorButton("-", operatorPanel);
+        mulButton = createOperatorButton("*", operatorPanel);
+        divButton = createOperatorButton("/", operatorPanel);
+        eqButton = createOperatorButton("=", operatorPanel);
+        negButton = createOperatorButton("+/-", operatorPanel);
+        clrButton = createOperatorButton("C", operatorPanel);
+        percButton = createOperatorButton("%", operatorPanel); 
+
+        mainPanel.add(numberPanel, BorderLayout.CENTER);
+        mainPanel.add(operatorPanel, BorderLayout.EAST);
+    }
+
+    private Button createButton(String label, Panel panel) {
+        Button button = new Button(label);
+        button.setFont(new Font("Arial", Font.BOLD, 24)); 
+        button.setPreferredSize(new Dimension(80, 80)); 
+        button.addActionListener(this);
+        panel.add(button);
+        return button;
+    }
+
+    private Button createOperatorButton(String label, Panel panel) {
+        Button button = new Button(label);
+        button.setFont(new Font("Arial", Font.BOLD, 24)); 
+        button.setPreferredSize(new Dimension(80, 80)); 
+        button.addActionListener(this);
+        panel.add(button);
+        return button;
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        String command = e.getActionCommand();
+        if (isNumber(command) || command.equals(".")) {
+            currentExpression += command;
+            display.setText(currentExpression);
+        } else if (isOperator(command)) {
+            currentExpression += " " + command + " ";
+            display.setText(currentExpression);
+        } else if (command.equals("=")) {
+            try {
+                String postfixExpression = infixToPostfix(currentExpression);
+                String result = postfixEvaluation(postfixExpression);
+                display.setText(result);
+                currentExpression = result;
+            } catch (Exception ex) {
+                display.setText("Error");
+                currentExpression = "";
+            }
+        } else if (command.equals("C")) {
+            currentExpression = "";
+            display.setText("");
+        } else if (command.equals("Back")) {
+            if (currentExpression.length() > 0) {
+                currentExpression = currentExpression.substring(0, currentExpression.length() - 1).trim();
+                display.setText(currentExpression);
+            }
+        } else if (command.equals("+/-")) { // Handle negative button
+            if (!currentExpression.isEmpty() && isNumber(currentExpression)) {
+                if (currentExpression.startsWith("-")) {
+                    currentExpression = currentExpression.substring(1);
+                } else {
+                    currentExpression = "-" + currentExpression;
+                }
+                display.setText(currentExpression);
+            }
+        } else if (command.equals("%")) { // Handle percentage button
+            try {
+                if (!currentExpression.isEmpty() && isNumber(currentExpression)) {
+                    double value = Double.parseDouble(currentExpression);
+                    currentExpression = String.valueOf(value / 100);
+                    display.setText(currentExpression);
+                }
+            } catch (Exception ex) {
+                display.setText("Error");
+                currentExpression = "";
+            }
+        }
+    }
+
+    private boolean isNumber(String command) {
+        return command.chars().allMatch(c -> Character.isDigit(c) || c == '.');
+    }
+
+    private boolean isOperator(String command) {
+        return command.equals("+") || command.equals("-") || command.equals("*") || command.equals("/");
+    }
+
+    int precedence(char a) {
+        if (a == '+' || a == '-') {
+            return 1;
+        } else if (a == '*' || a == '/') {
+            return 2;
+        }
+        return -1;
+    }
+
+    String postfixEvaluation(String t) {
+        Stack<Float> q = new Stack<>();
+        String r[] = t.split("\\s+");
+        for (String s : r) {
+            if (s.matches("-?\\d+\\.?\\d*")) {
+                q.push(Float.parseFloat(s));
+            } else {
+                char c = s.charAt(0);
+                float a = q.pop();
+                float b = q.pop();
+                switch (c) {
+                    case '+':
+                        q.push(b + a);
+                        break;
+                    case '-':
+                        q.push(b - a);
+                        break;
+                    case '*':
+                        q.push(b * a);
+                        break;
+                    case '/':
+                        q.push(b / a);
+                        break;
+                }
+            }
+        }
+        return String.valueOf(q.pop());
+    }
+
+    String infixToPostfix(String s) {
+        Stack<Character> stack = new Stack<>();
+        StringBuilder r = new StringBuilder();
+        StringBuilder number = new StringBuilder();
+        boolean wasOperator = true;
+
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (Character.isDigit(c) || c == '.') {
+                number.append(c);
+                wasOperator = false;
+            } else if (c == ' ') {
+                continue;
+            } else {
+                if (number.length() > 0) {
+                    r.append(number).append(" ");
+                    number.setLength(0);
+                }
+                if (c == '(') {
+                    stack.push(c);
+                } else if (c == ')') {
+                    while (!stack.isEmpty() && stack.peek() != '(') {
+                        r.append(stack.pop()).append(" ");
+                    }
+                    stack.pop();
+                } else {
+                    if (c == '-' && wasOperator) {
+                        // Handle negative number
+                        number.append(c);
+                        wasOperator = false;
+                    } else {
+                        while (!stack.isEmpty() && precedence(c) <= precedence(stack.peek())) {
+                            r.append(stack.pop()).append(" ");
+                        }
+                        stack.push(c);
+                        wasOperator = true;
+                    }
+                }
+            }
+        }
+        if (number.length() > 0) {
+            r.append(number).append(" ");
+        }
+        while (!stack.isEmpty()) {
+            r.append(stack.pop()).append(" ");
+        }
+        return r.toString().trim();
+    }
+}
